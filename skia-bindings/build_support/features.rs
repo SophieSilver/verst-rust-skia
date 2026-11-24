@@ -21,6 +21,10 @@ impl Features {
     pub fn from_cargo_env() -> Self {
         let mut features = Self::default();
 
+        // if cfg!(feature = "use-system-libraries") {
+        //     features += feature::USE_SYSTEM_LIBS;
+        // }
+
         if cfg!(feature = "pdf") {
             features += feature::PDF;
         }
@@ -243,6 +247,8 @@ pub mod feature {
     pub const JPEG_ENCODE: &str = "jpeg-encode";
     pub const JPEG_DECODE: &str = "jpeg-decode";
 
+    pub const USE_SYSTEM_LIBS: &str = "use-system-libraries";
+
     pub const FREETYPE_SPECIFIC: &[&str] = &[EMBED_FREETYPE, FREETYPE_WOFF2];
 
     pub const DEPENDENCIES: &[(&str, &[&str])] = &[
@@ -262,5 +268,6 @@ pub mod feature {
         (FREETYPE_WOFF2, "ftwoff2"),
         (JPEG_ENCODE, "jpege"),
         (JPEG_DECODE, "jpegd"),
+        (USE_SYSTEM_LIBS, "syslibs"),
     ];
 }

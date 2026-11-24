@@ -27,25 +27,6 @@ cargo add skia-safe
 
 in your project's folder. And you might want to take a look at the [gl-window](https://github.com/rust-skia/rust-skia/tree/master/skia-safe/examples/gl-window) example if you plan to render to a window.
 
-### Platform Support, Build Targets, and Prebuilt Binaries
-
-Because building Skia takes a lot of time and needs tools that may be missing, the skia-bindings crate's `build.rs` attempts to download prebuilt binaries from [the skia-binaries repository](https://github.com/rust-skia/skia-binaries/releases) using the `curl` command line tool.
-
-| Platform                                         | Binaries                                                                   |
-| ------------------------------------------------ | -------------------------------------------------------------------------- |
-| Windows                                          | `x86_64-pc-windows-msvc`<br/>`aarch64-pc-windows-msvc`                     |
-| Linux (glibc ≥ 2.31, libstdc++ ≥ GLIBCXX_3.4.28) | `x86_64-unknown-linux-gnu`<br/>`aarch64-unknown-linux-gnu`                 |
-| macOS                                            | `x86_64-apple-darwin`<br/>`aarch64-apple-darwin`                           |
-| Android                                          | `aarch64-linux-android`<br/>`x86_64-linux-android`                         |
-| iOS                                              | `aarch64-apple-ios`<br/>`aarch64-apple-ios-sim`<br/>`x86_64-apple-ios`     |
-| WebAssembly                                      | `wasm32-unknown-emscripten`                                                |
-
-The glibc and libstdc++ requirements are those of the container the binaries are built in, so they
-are at least [Ubuntu 20.04](https://en.wikipedia.org/wiki/Ubuntu_version_history), Debian 11, Fedora 32,
-and CentOS Stream 9. The build script does not detect this on its own: on an older system the
-downloaded binaries fail to link. In that case, set `FORCE_SKIA_BUILD=1` (or disable the
-`binary-cache` feature) to build Skia from source instead.
-
 ### Wrappers & Codecs & Supported Features
 
 The supported wrappers, Skia codecs, and additional Skia features are documented in the [skia-safe package's readme](skia-safe/README.md). Prebuilt binaries are available for most feature combinations.

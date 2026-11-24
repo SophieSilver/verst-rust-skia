@@ -30,6 +30,7 @@ type std___2_string_view = std_string_view;
 type std___1_string = std_string;
 type std___2_string = std_string;
 
+// rust-analyzer will choke on this if it's not OUT_DIR, for some bloody reason
 include!(concat!(env!("OUT_DIR"), "/skia/bindings.rs"));
 
 mod defaults;

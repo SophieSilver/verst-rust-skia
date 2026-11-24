@@ -1,7 +1,7 @@
-use std::{fs, io};
+use std::{fs, io, path::Path};
 
 use build_support::{
-    binaries_config,
+    binaries_config::{self, SKIA_OUTPUT_DIR},
     cargo::{self, Target},
     features, platform, skia, skia_bindgen,
 };
@@ -33,12 +33,6 @@ fn main() -> Result<(), io::Error> {
 
         let redundant_features = platform::redundant_features(&features, &cargo_target);
         if !redundant_features.is_empty() {
-            #[cfg(feature = "binary-cache")]
-            if build_support::binary_cache::should_export().is_some() {
-                return Err(io::Error::other(format!(
-                    "Can't produce binaries with redundant features: {redundant_features}"
-                )));
-            }
             cargo::warning(format!(
                 "Redundant features: {redundant_features}. Disabled for the build and binary download."
             ));
@@ -52,9 +46,6 @@ fn main() -> Result<(), io::Error> {
     let binaries_config =
         binaries_config::BinariesConfiguration::from_features(&features, skia_debug);
 
-    //
-    // skip attempting to download?
-    //
     if let Some(source_dir) = env::source_dir() {
         if let Some(search_path) = env::skia_lib_search_path() {
             println!("STARTING BIND AGAINST SYSTEM SKIA");
@@ -102,61 +93,43 @@ fn main() -> Result<(), io::Error> {
             );
         }
     } else {
-        //
-        // is the download of prebuilt binaries possible?
-        //
+        // full build
 
-        #[allow(unused_variables)]
-        let build_skia = true;
-
-        #[cfg(feature = "binary-cache")]
-        let build_skia = build_support::binary_cache::try_prepare_download(&binaries_config);
-
-        //
-        // full build?
-        //
-
-        if build_skia {
-            if cfg!(feature = "no-compile") {
-                panic!("Refusing to full-build skia with no-compile feature");
-            }
-
-            println!("STARTING A FULL BUILD");
-            println!("HOST: {}", cargo::host());
-
-            let source_dir = std::env::current_dir().unwrap().join("skia");
-            let final_build_configuration = build_from_source(
-                features.clone(),
-                &binaries_config,
-                &source_dir,
-                skia_debug,
-                false,
-            );
-            let definitions = skia_bindgen::definitions::from_ninja_features(
-                &features,
-                final_build_configuration.use_system_libraries,
-                &binaries_config.output_directory,
-            );
-            generate_bindings(
-                &features,
-                definitions,
-                &binaries_config,
-                &source_dir,
-                final_build_configuration.target,
-                final_build_configuration
-                    .sysroot
-                    .as_ref()
-                    .map(AsRef::as_ref),
-            );
+        if cfg!(feature = "no-compile") {
+            panic!("Refusing to full-build skia with no-compile feature");
         }
+
+        println!("STARTING A FULL BUILD");
+        println!("HOST: {}", cargo::host());
+
+        let source_dir = std::env::current_dir().unwrap().join("skia");
+        let final_build_configuration = build_from_source(
+            features.clone(),
+            &binaries_config,
+            &source_dir,
+            skia_debug,
+            false,
+        );
+        let definitions = skia_bindgen::definitions::from_ninja_features(
+            &features,
+            final_build_configuration.use_system_libraries,
+            &binaries_config.output_directory,
+        );
+        generate_bindings(
+            &features,
+            definitions,
+            &binaries_config,
+            &source_dir,
+            final_build_configuration.target,
+            final_build_configuration
+                .sysroot
+                .as_ref()
+                .map(AsRef::as_ref),
+        );
     };
 
+    // binaries_config.copy_included_files_to_out_dir();
     binaries_config.commit_to_cargo();
-
-    #[cfg(feature = "binary-cache")]
-    if let Some(staging_directory) = build_support::binary_cache::should_export() {
-        build_support::binary_cache::publish(&binaries_config, &staging_directory);
-    }
 
     Ok(())
 }

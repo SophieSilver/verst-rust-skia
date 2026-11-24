@@ -26,6 +26,10 @@ pub fn env_var(name: impl AsRef<str>) -> Option<String> {
     env::var(name).ok()
 }
 
+pub fn set_env_var(name: impl AsRef<str>, value: impl AsRef<str>) {
+    println!("cargo::rustc-env={}={}", name.as_ref(), value.as_ref());
+}
+
 /// Notify cargo that it should rerun the build if the environment
 /// variable changes.
 pub fn rerun_if_env_var_changed(name: impl AsRef<str>) {

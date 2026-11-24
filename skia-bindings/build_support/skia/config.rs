@@ -67,10 +67,18 @@ impl BuildConfiguration {
             target.architecture = "riscv64".to_string();
         }
 
+        // TODO: figure this out
+
+        let opt_level = if cfg!(feature = "use-common-compile-directory") {
+            Some("3".into())
+        } else {
+            cargo::env_var("OPT_LEVEL")
+        };
+
         BuildConfiguration {
             on_windows: cargo::host().is_windows(),
             // `OPT_LEVEL` is set by Cargo itself.
-            opt_level: cargo::env_var("OPT_LEVEL"),
+            opt_level,
             features,
             skia_debug,
             cc,
@@ -298,8 +306,6 @@ pub fn build(
 
     if !offline {
         println!("Synchronizing Skia dependencies");
-        #[cfg(feature = "binary-cache")]
-        crate::build_support::binary_cache::resolve_dependencies();
         assert!(
             Command::new(python)
                 // Explicitly providing `GIT_SYNC_DEPS_PATH` fixes a problem with `git-sync-deps`

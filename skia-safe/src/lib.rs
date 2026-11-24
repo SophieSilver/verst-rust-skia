@@ -88,8 +88,7 @@
 //! - `textlayout` — text shaping with HarfBuzz and ICU, and text layout via `skparagraph`.
 //! - `svg` — SVG rendering.
 //! - `skottie` — Lottie animation rendering.
-//! - `webp-encode`, `webp-decode`, `webp` — WebP image format support.
-//! - `binary-cache` (default) — download prebuilt Skia binaries instead of building locally.
+//! - `webp-encode`, `webp-decode`, `webp` — WebP image format support.=
 //! - `embed-icudtl` (default) — embed `icudtl.dat` for the `textlayout` features.
 //!
 //! See the [package README](https://github.com/rust-skia/rust-skia/blob/master/skia-safe/README.md)

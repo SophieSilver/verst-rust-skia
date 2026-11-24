@@ -5,7 +5,7 @@ use std::path::PathBuf;
 /// A boolean specifying whether to build Skia's dependencies or not. If not, the system's
 /// provided libraries are used.
 pub fn use_system_libraries() -> bool {
-    cargo::env_var("SKIA_USE_SYSTEM_LIBRARIES").is_some()
+    cfg!(feature = "use-system-libraries")
 }
 
 /// The full path of the ninja command to run.

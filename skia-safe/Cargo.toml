@@ -27,7 +27,7 @@ rust-version.workspace = true
 doctest = false
 
 [features]
-default = ["binary-cache", "embed-icudtl", "pdf", "jpeg"]
+default = ["embed-icudtl", "pdf", "jpeg"]
 all-linux = ["ganesh", "gl", "egl", "vulkan", "x11", "wayland", "textlayout", "svg", "skottie", "webp", "graphite"]
 all-windows = ["ganesh", "gl", "vulkan", "d3d", "textlayout", "svg", "skottie", "webp", "graphite"]
 all-macos = ["ganesh", "gl", "vulkan", "metal", "textlayout", "svg", "skottie", "webp", "graphite"]
@@ -48,7 +48,6 @@ webp = ["webp-encode", "webp-decode"]
 webp-encode = ["skia-bindings/webp-encode"]
 webp-decode = ["skia-bindings/webp-decode"]
 use-system-jpeg-turbo = ["skia-bindings/use-system-jpeg-turbo"]
-binary-cache = ["skia-bindings/binary-cache"]
 embed-icudtl = ["skia-bindings/embed-icudtl"]
 embed-freetype = ["skia-bindings/embed-freetype"]
 freetype-woff2 = ["skia-bindings/freetype-woff2"]

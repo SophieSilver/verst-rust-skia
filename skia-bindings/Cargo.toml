@@ -36,7 +36,8 @@ doctest = false
 skia = "m157.2"
 
 [features]
-default = ["binary-cache", "embed-icudtl", "pdf"]
+# Verst: Verst does not distribute prebuilt binaries at this time, so we remove this feature from our fork
+default = ["use-common-compile-directory", "embed-icudtl", "pdf"]
 gpu = []
 ganesh = []
 gl = []
@@ -53,17 +54,23 @@ webp-decode = []
 pdf = ["jpeg"]
 graphite = []
 # sys libraries
+use-system-libraries = []
 use-system-jpeg-turbo = ["dep:mozjpeg-sys"]
 # `textlayout` because `SkSVGTextContext::SkSVGTextContext()` invokes `SkShaper::Make`.
 svg = ["textlayout"]
 skottie = ["textlayout"]
-binary-cache = ["dep:flate2", "dep:tar"]
 embed-icudtl = []
 embed-freetype = []
 freetype-woff2 = []
 # Panic when any compilation steps are required to run.
 # See <https://github.com/rust-skia/rust-skia/pull/1121>.
 no-compile = []
+
+# Verst:
+# Whether the build script would use the common compile directory for skia
+# This isn't well-supported by cargo so it's kinda hacked in and can cause jank in some edge cases,
+# But this can greatly reduce the amount of time skia gets recompiled
+use-common-compile-directory = []
 
 jpeg = ["jpeg-encode", "jpeg-decode"]
 jpeg-encode = []
@@ -81,8 +88,9 @@ pkg-config = "0.3.32"
 regex = "1.12.3"
 heck = "0.5.0"
 
-flate2 = { version = "1.0.7", optional = true }
-tar = { version = "0.4.45", optional = true }
+# Verst: these are only used for binary cache
+# flate2 = { version = "1.0.7", optional = true }
+# tar = { version = "0.4.45", optional = true }
 
 # For reading .cargo.vcs_info.json to get the repository sha1 that is used to download
 # the matching prebuilt binaries.

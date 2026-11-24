@@ -106,10 +106,6 @@ The Cargo feature `skottie` enables support for rendering Lottie animations thro
 
 `webp-encode` enables support for encoding Skia bitmaps and images to the [WEBP](https://en.wikipedia.org/wiki/WebP) image format, and `webp-decode` enables support for decoding WEBP to Skia bitmaps and images. The `webp` feature can be used as a shorthand to enable the `webp-encode` and `webp-decode` features.
 
-### `binary-cache` (enabled by default)
-
-`binary-cache` enables download pre-built skia binaries instead of building them locally.
-
 ### `embed-icudtl` (enabled by default)
 
 Usually when Skia is used on **Windows**, the file `icudtl.dat` must be available in your executable's directory. But if this default feature is enabled, the `icudtl.dat` file is directly embedded in Rust and is automatically initialized before any of the `textlayout` features are used.
