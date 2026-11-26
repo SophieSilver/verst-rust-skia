@@ -231,7 +231,6 @@ impl BinariesConfiguration {
 
         return Ok(());
     }
-
 }
 
 fn common_output_directory() -> io::Result<PathBuf> {
@@ -277,6 +276,10 @@ fn directory_contains(directory: &Path, file_name: &str) -> io::Result<bool> {
 fn copy_file(file_name: &Path, from_dir: &Path, to_dir: &Path) -> io::Result<()> {
     let from_path = from_dir.join(file_name);
     let to_path = to_dir.join(file_name);
+    if from_dir == to_dir {
+        return Ok(());
+    }
+
     fs::copy(&from_path, &to_path).map(|_| ()).map_err(|e| {
         eprintln!(
             "COPY OPERATION FAILED: from '{}' to '{}': {}",

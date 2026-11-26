@@ -67,7 +67,7 @@ impl BuildConfiguration {
             target.architecture = "riscv64".to_string();
         }
 
-        // TODO: figure this out
+        // TODO: Verst: provide override via env
 
         let opt_level = if cfg!(feature = "use-common-compile-directory") {
             Some("3".into())

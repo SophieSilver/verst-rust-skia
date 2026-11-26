@@ -128,7 +128,7 @@ fn main() -> Result<(), io::Error> {
         );
     };
 
-    // binaries_config.copy_included_files_to_out_dir();
+    binaries_config.copy_included_files_to_out_dir();
     binaries_config.commit_to_cargo();
 
     Ok(())
