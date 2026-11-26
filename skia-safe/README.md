@@ -27,9 +27,9 @@ Skia-safe wraps most parts of the public Skia C++ APIs:
     - [x] OpenGL
     - [x] Metal
     - [x] Direct3D
-    - [ ] WebGPU [Dawn](https://dawn.googlesource.com/dawn/)
   - [x] Graphite
     - [x] Context creation (Metal, Vulkan)
+    - [x] `wgpu` devices, through Skia's Dawn backend (see the `wgpu` feature)
     - [ ] Backend type wrappers (Metal and Vulkan `TextureInfo`, precompile, `ImageProvider`)
 
 Most wrappers don't require callbacks: Skia objects are created and manipulated directly. Where Skia needs to call back into Rust, skia-safe provides Rust traits and closures that Skia invokes through generated trampolines — for example the `RunHandler` trait for shaping, `ResourceProvider` for Skottie resources, `RustStream` for Rust I/O streams, and the Vulkan `GetProc` resolver. Classes that would require subclassing in C++ (such as `Drawable` and `RuntimeEffect`) are exposed as handles without a Rust subclassing interface yet; the cases where that matters are rather special, so we postponed them for now.
@@ -88,11 +88,29 @@ Support for Metal on macOS and iOS targets can be enabled by adding `metal` and 
 
 The Direct3D backend can be enabled for Windows targets by adding the feature `d3d`.
 
+### `wgpu`
+
+The `wgpu` backend is experimental.
+
+Skia renders with Graphite on the device and queue of a [`wgpu`](https://wgpu.rs) application, and into its textures. The module `skia_safe::gpu::graphite::wgpu` takes the application's `wgpu::Device`, `wgpu::Queue`, and `wgpu::Texture`.
+
+The feature `wgpu` selects the `wgpu` major version that this release recommends, which `skia_safe::wgpu` re-exports. An application that depends on `wgpu` itself enables the feature of its version instead, for example `wgpu-30`. A build enables exactly one of them.
+
+Skia uses its Dawn backend, and the [skia-wgpu](https://github.com/rust-skia/rust-skia/tree/master/skia-wgpu) crate implements the WebGPU functions that the backend calls on `wgpu`, so neither Dawn nor any other WebGPU implementation is linked. There are no prebuilt binaries with this feature yet: Skia is built from source, and the build downloads Dawn's WebGPU headers, so it does not work offline.
+
+To render the examples with Graphite on `wgpu`, use
+
+```bash
+(cd skia-org && cargo run --features wgpu -- [OUTPUT_DIR] --driver wgpu)
+```
+
 ### `textlayout`
 
 The Cargo feature `textlayout` enables text shaping with Harfbuzz and ICU by providing bindings to the Skia modules skshaper and skparagraph. 
 
 The skshaper module can be accessed through `skia_safe::Shaper` and the Rust bindings for skparagraph are in the `skia_safe::textlayout` module. 
+
+On desktop targets, the ICU data (`icudtl.dat`) that the build includes holds only the items that Skia loads: the break rules and dictionaries, the emoji properties, and the data that resolves `-u-` keywords in locale tags. This saves about 7.5 MB per binary. To include the complete ICU data there, build Skia from source with `FORCE_SKIA_BUILD=1` and `SKIA_GN_ARGS="skia_icu_filter_data=false"`. Setting `SKIA_GN_ARGS` alone does not stop the download of the prebuilt binaries, which include the filtered data. Android, iOS, and WebAssembly builds embed the ICU data that Skia ships for those platforms, which this option does not change.
 
 ### `svg`
 

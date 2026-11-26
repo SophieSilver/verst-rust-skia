@@ -44,7 +44,7 @@ mod texture_info;
 mod implementation {
     // Core types
     pub use super::context::Context;
-    pub use super::recorder::{BorrowedRecorder, Recorder, RecorderOptions};
+    pub use super::recorder::{BorrowedRecorder, ImageProvider, Recorder, RecorderOptions};
     pub use super::recording::Recording;
 
     // Configuration and options
@@ -74,6 +74,13 @@ pub mod mtl;
 
 #[cfg(feature = "vulkan")]
 pub mod vk;
+
+// The Dawn backend is reachable only through `wgpu`, because rust-skia runs it on no other WebGPU
+// implementation (ADR 0003).
+#[cfg(feature = "_wgpu")]
+mod dawn;
+#[cfg(feature = "_wgpu")]
+pub mod wgpu;
 
 pub use implementation::*;
 

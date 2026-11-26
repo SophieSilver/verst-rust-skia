@@ -5,6 +5,8 @@ mod build_support {
     pub mod binaries_config;
     pub mod cargo;
     pub mod clang;
+    #[cfg(feature = "wgpu")]
+    pub mod dawn;
     pub mod features;
     pub mod platform;
     pub mod skia;

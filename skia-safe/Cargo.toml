@@ -2,7 +2,6 @@
 name = "skia-safe"
 
 description = "Safe Skia Bindings for Rust"
-homepage = "https://github.com/rust-skia/rust-skia"
 repository = "https://github.com/rust-skia/rust-skia"
 documentation = "https://docs.rs/skia-safe"
 readme = "README.md"
@@ -18,10 +17,15 @@ categories = [
 ]
 license = "MIT"
 
-version = "0.157.0"
+version = "0.158.0"
 authors = ["Armin Sander <armin@replicator.org>"]
 edition.workspace = true
 rust-version.workspace = true
+
+# The features that docs.rs documents. docs.rs builds no Skia: `skia-bindings` copies the bindings
+# that `just publish-bindings-docs` generated with these features (`bindings_docs.rs`).
+[package.metadata.docs.rs]
+features = ["ganesh", "gl", "textlayout", "svg", "skottie", "ureq", "webp", "vulkan", "wgpu"]
 
 [lib]
 doctest = false
@@ -60,10 +64,22 @@ save-svg-images = []
 gpu = []
 ganesh = ["skia-bindings/ganesh"]
 graphite = ["skia-bindings/graphite"]
+# Graphite on an application's `wgpu` device, through Skia's Dawn backend that `skia-wgpu` runs on
+# `wgpu` (ADR 0003), with the `wgpu` version that this release recommends. It moves to a newer
+# version only with a milestone version bump, because applications that use their own `wgpu`
+# dependency break.
+wgpu = ["wgpu-30"]
+# Graphite on an application's `wgpu` 30 device.
+wgpu-30 = ["_wgpu", "skia-wgpu/wgpu-30"]
+# What every `wgpu-NN` feature enables, without selecting a `wgpu` version. Applications enable a
+# `wgpu-NN` feature instead. The code of the `wgpu` backend depends only on this feature, so a new
+# `wgpu-NN` feature changes no code in `skia-safe`.
+_wgpu = ["graphite", "dep:skia-wgpu"]
 
 [dependencies]
 bitflags = "2.0"
-skia-bindings = { version = "=0.157.0", path = "../skia-bindings", default-features = false }
+skia-bindings = { version = "=0.158.0", path = "../skia-bindings", default-features = false }
+skia-wgpu = { version = "=0.158.0", path = "../skia-wgpu", optional = true }
 
 
 # D3D types & ComPtr
@@ -115,7 +131,7 @@ vulkano = { version = "0.35" }
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dev-dependencies]
 objc2 = { version = "0.6.3", default-features = false }
 objc2-core-foundation = { version = "0.3.2", default-features = false }
-objc2-metal = { version = "0.3.2", default-features = false, features = ["MTLDevice", "MTLCommandBuffer", "MTLCommandQueue", "MTLDrawable", "MTLPixelFormat"] }
+objc2-metal = { version = "0.3.2", default-features = false, features = ["MTLDevice", "MTLCommandBuffer", "MTLCommandQueue", "MTLDrawable", "MTLPixelFormat", "MTLAllocation", "MTLResource", "MTLTexture"] }
 objc2-quartz-core = { version = "0.3.2", default-features = false, features = ["objc2-core-foundation", "objc2-metal", "CAMetalLayer"] }
 raw-window-handle = "0.6.0"
 

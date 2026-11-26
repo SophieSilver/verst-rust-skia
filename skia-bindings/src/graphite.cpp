@@ -18,6 +18,7 @@
 #include "include/gpu/graphite/ContextOptions.h"
 #include "include/gpu/graphite/GraphiteTypes.h"
 #include "include/gpu/graphite/Image.h"
+#include "include/gpu/graphite/ImageProvider.h"
 #include "include/gpu/graphite/Recorder.h"
 #include "include/gpu/graphite/Surface.h"
 #include "include/gpu/graphite/TextureInfo.h"
@@ -257,6 +258,57 @@ extern "C" void C_RecorderOptions_destruct(skgpu::graphite::RecorderOptions* sel
     self->~RecorderOptions();
 }
 
+//
+// gpu/graphite/ImageProvider.h
+//
+
+namespace ImageProvider {
+    extern "C" {
+        typedef void (*Drop)(void*);
+        typedef SkImage* (*FindOrCreate)(
+            void*, skgpu::graphite::Recorder*, const SkImage*, const SkImage::RequiredProperties*);
+    }
+}
+
+// Forwards Graphite's findOrCreate to a Rust ImageProvider, and owns that provider for its own
+// ref-counted lifetime.
+class RustImageProvider final : public skgpu::graphite::ImageProvider {
+public:
+    struct Param {
+        // The Rust provider, owned by the `RustImageProvider` and released in its destructor
+        // through `drop`.
+        void* data;
+        ::ImageProvider::Drop drop;
+        ::ImageProvider::FindOrCreate findOrCreate;
+    };
+
+    explicit RustImageProvider(const Param& param)
+    : _param(param)
+    { }
+
+    ~RustImageProvider() override {
+        _param.drop(_param.data);
+    }
+
+    sk_sp<SkImage> findOrCreate(skgpu::graphite::Recorder* recorder,
+                                const SkImage* image,
+                                SkImage::RequiredProperties requiredProps) override {
+        return sp(_param.findOrCreate(_param.data, recorder, image, &requiredProps));
+    }
+
+private:
+    Param _param;
+};
+
+extern "C" RustImageProvider* C_RustImageProvider_New(const RustImageProvider::Param* param) {
+    return new RustImageProvider(*param);
+}
+
+extern "C" void C_RecorderOptions_setImageProvider(
+        skgpu::graphite::RecorderOptions* self, RustImageProvider* imageProvider) {
+    self->fImageProvider = sp(imageProvider);
+}
+
 extern "C" skgpu::graphite::Recording* C_Recorder_snap(skgpu::graphite::Recorder* self) {
     return self->snap().release();
 }
@@ -276,6 +328,43 @@ extern "C" skgpu::BackendApi C_Recorder_backend(const skgpu::graphite::Recorder*
 // Rust wrapper must `delete` it.
 extern "C" void C_Recorder_delete(skgpu::graphite::Recorder* self) {
     delete self;
+}
+
+namespace {
+
+// Reads a private member of a Skia class without patching Skia.
+//
+// C++ does not check access for names used in an explicit template instantiation
+// ([temp.explicit]), so `template struct PrivateMember<Tag, &Class::fPrivate>;` may name a private
+// member. The instantiation defines the friend function `memberPointer(Tag)`, which returns the
+// pointer to that member, and code outside the class reaches it through the tag. A renamed member
+// or a changed member type fails to compile here.
+template <typename Tag, typename Tag::Type Member>
+struct PrivateMember {
+    friend typename Tag::Type memberPointer(Tag) { return Member; }
+};
+
+// `Recorder::fTrackedDevices`: every Device connected to the Recorder, including those of live
+// SkSurfaces.
+struct RecorderTrackedDevices {
+    using Type =
+        skia_private::TArray<sk_sp<skgpu::graphite::Device>> skgpu::graphite::Recorder::*;
+    friend Type memberPointer(RecorderTrackedDevices);
+};
+template struct PrivateMember<RecorderTrackedDevices,
+                              &skgpu::graphite::Recorder::fTrackedDevices>;
+
+}  // namespace
+
+// Snaps the Recorder, discards the Recording, and returns true if a Device connected to the
+// Recorder is still used outside of it, for example by a live SkSurface. Deleting the Recorder
+// then leaves that Device without a Recorder, and the next draw on it dereferences a null
+// Recorder. snap() removes the entries that dropped surfaces and layers leave behind, every
+// tracked Device that only the Recorder still holds, and the deferred canvas device, so every
+// Device left in the list is used elsewhere.
+extern "C" bool C_Recorder_snapAndHasLiveDevices(skgpu::graphite::Recorder* self) {
+    self->snap();
+    return !(self->*memberPointer(RecorderTrackedDevices())).empty();
 }
 
 //
@@ -360,10 +449,12 @@ extern "C" SkImage* C_SkImages_WrapTextureGraphite(
 
 extern "C" SkImage* C_SkImages_TextureFromImageGraphite(
         skgpu::graphite::Recorder* recorder,
-        const SkImage* image) {
+        const SkImage* image,
+        const SkImage::RequiredProperties* requiredProps) {
     return SkImages::TextureFromImage(
             recorder,
-            image).release();
+            image,
+            *requiredProps).release();
 }
 
 extern "C" SkImage* C_SkImages_SubsetTextureFromGraphite(
@@ -401,8 +492,12 @@ extern "C" skgpu::graphite::Context* C_ContextFactory_MakeMetal(
 
 extern "C" SkContext* C_SkContexts_MakeGraphiteMetal(
     const skgpu::graphite::MtlBackendContext* backendContext,
-    const SkContextOptions* options) {
-    return SkContexts::MakeGraphite(*backendContext, *options).release();
+    const SkContextOptions* contextOptions,
+    const skgpu::graphite::ContextOptions* graphiteOptions) {
+    return SkContexts::MakeGraphite(
+        *backendContext,
+        *contextOptions,
+        graphiteOptions ? *graphiteOptions : skgpu::graphite::ContextOptions()).release();
 }
 
 extern "C" void C_BackendTextures_MakeMetal(
@@ -434,8 +529,11 @@ extern "C" skgpu::graphite::Context* C_ContextFactory_MakeVulkan(
 
 extern "C" SkContext* C_SkContexts_MakeGraphiteVulkan(
     const void* backendContext,
-    const SkContextOptions* options) {
+    const SkContextOptions* contextOptions,
+    const skgpu::graphite::ContextOptions* graphiteOptions) {
     return SkContexts::MakeGraphite(
-        *static_cast<const skgpu::VulkanBackendContext*>(backendContext), *options).release();
+        *static_cast<const skgpu::VulkanBackendContext*>(backendContext),
+        *contextOptions,
+        graphiteOptions ? *graphiteOptions : skgpu::graphite::ContextOptions()).release();
 }
 #endif

@@ -1,6 +1,6 @@
 ---
 name: skia-milestone-update
-description: Perform a Skia milestone update for rust-skia or refresh the current milestone from its upstream chrome/mXX branch. Use when the user asks to "continue the milestone update", "update to milestone mXX", "update Skia from upstream", or references the milestone update process. Covers the Skia fork rebase and tag sequence, README update, build org diff, third-party DEPS pins, header diff accounting, wrapper updates, version bump, API diff review, and final checks.
+description: Perform a Skia milestone update for rust-skia or refresh the current milestone from its upstream chrome/mXX branch. Use when the user asks to "continue the milestone update", "update to milestone mXX", "update Skia from upstream", or references the milestone update process. Covers the Skia fork rebase and tag sequence, README update, build org diff, third-party DEPS pins, the Dawn revision and its generated headers, the newest `wgpu` version, header diff accounting, wrapper updates, version bump, API diff review, and final checks.
 ---
 
 # Skia Milestone Update
@@ -62,6 +62,31 @@ misread as two tags on the same commit. For the same reason, always spell out
 Note that the version component of a Skia fork tag does not track the milestone for
 tags up to `m152` (for example `m152-0.100.0`), and only aligns with it from `m153`
 on. Take both tags from the repository instead of deriving one from the other.
+
+## Records
+
+The PR description is the record of the update: what each check found and the decision made
+for it. Reviewers read it there, and it survives the wait for the Chrome release date. Open the
+PR as a draft from `PR_TEMPLATE.md` as soon as the parent branch is pushed (step 8 of the
+rebase below), with the records of every check that finished before.
+
+The template has one section per check of this skill, and each section says what it records:
+Release notes, Build organization, Third-party dependencies, Dawn headers, Release poll, `wgpu`
+versions, Toolchain requirements, and Wrapper updates. Each check below ends by recording
+its outcome in its section. Update the description with `gh`:
+
+```sh
+gh pr view --json body --jq .body > "$TMPDIR/NEW_TAG-pr.md"
+# Edit the section in "$TMPDIR/NEW_TAG-pr.md".
+gh pr edit --body-file "$TMPDIR/NEW_TAG-pr.md"
+```
+
+The records are complete when every section holds at least one entry, with `no change` written
+out where the check found nothing, so a skipped check stands out from a clean one.
+
+The one working list outside the PR is the per-header list of the public header check, in
+`$TMPDIR/NEW_TAG-headers.md`. It is used before the wrapper edits start, and its outcome goes
+into Wrapper updates.
 
 ## Rebase the fork patch stack
 
@@ -146,13 +171,12 @@ replays the old milestone's upstream-only commits as if they were fork patches.
 
   Do not bump the Rust crate versions for a same-milestone upstream refresh.
 
-6. Update `[package.metadata].skia`, the README comparison links, the milestone line of
-   `skia-safe/docs-porting-tracker.md` (it names the current tag), and the parent
+6. Update `[package.metadata].skia`, the README comparison links, and the parent
    repository's submodule gitlink. Stage all of them before running Cargo or another
    build job:
 
    ```sh
-   git add README.md skia-bindings/Cargo.toml skia-safe/docs-porting-tracker.md skia-bindings/skia
+   git add README.md skia-bindings/Cargo.toml skia-bindings/skia
    ```
 
    The gitlink must name the rebased tip before any build that starts without a `skia/`
@@ -207,7 +231,8 @@ replays the old milestone's upstream-only commits as if they were fork patches.
 
    Push the parent branch with `git push --recurse-submodules=no` once the tag is on the
    remote. The fork publishes its commits only as tags, so Git's submodule push check, which
-   looks for them on remote branches, rejects every push that changes the gitlink.
+   looks for them on remote branches, rejects every push that changes the gitlink. Then open
+   the draft PR (see Records above), unless it exists already.
 
 ## Notes that go beyond the wiki checklist
 
@@ -216,9 +241,13 @@ replays the old milestone's upstream-only commits as if they were fork patches.
   unrelated to the crate version — see the note under Inputs for its scheme.
   Update all of these together:
   - `skia-bindings/Cargo.toml` package version;
-  - `skia-safe/Cargo.toml` package version and exact `skia-bindings` dependency;
+  - `skia-safe/Cargo.toml` package version and exact `skia-bindings` and `skia-wgpu`
+    dependencies;
+  - `skia-wgpu/Cargo.toml` package version and exact `skia-bindings` dependency;
   - `skia-bindings/Cargo.toml` `[package.metadata].skia`, matching `NEW_TAG`
     exactly;
+  - `skia-bindings/Cargo.toml` `[package.metadata].dawn`, `.jinja2`, and `.markupsafe`,
+    see the Dawn note below;
   - `skia-safe/src/core/milestone.rs` `MILESTONE` constant, matching `SK_MILESTONE`
     in `include/core/SkMilestone.h`.
   `Cargo.lock` is gitignored and untracked, so it is not part of the commit. Delete it
@@ -233,7 +262,7 @@ replays the old milestone's upstream-only commits as if they were fork patches.
   previous milestone PRs. Update the title of an already opened PR if the
   milestone changes direction, but never during a same-milestone refresh.
 - **Skia release notes:** read them first, before the build organization diff and the
-  header accounting, and record a decision for every note in the accounting:
+  header accounting, and record a decision for every note in the PR's Release notes section:
 
   ```sh
   git -C skia-bindings/skia diff refs/tags/OLD_TAG..refs/tags/NEW_TAG -- RELEASE_NOTES.md relnotes/
@@ -253,7 +282,7 @@ replays the old milestone's upstream-only commits as if they were fork patches.
   `default_args` in `.gn` apply to our build. A flag that `gn/skia.gni` declares off can
   therefore be on, as `skia_enable_packed_422_yuv` is. The defines that bindgen
   actually sees are in `skia-defines.txt`, next to the generated `bindings.rs`.
-  Record each file as `no change` or `updated build glue` in the accounting. Most
+  Record each file in the PR's Build organization section. Most
   source-list changes flow through existing Skia targets and need no rust-skia
   build glue change. However, any diff in the `gn`/`gni` files that looks
   relevant — one that may need special consideration or may indirectly affect
@@ -318,6 +347,121 @@ replays the old milestone's upstream-only commits as if they were fork patches.
     `just check-third-party-sources` must pass. It checks every path the
     `third_party` build files list against the checkouts of the pinned libraries. It fails
     and names the libraries it skipped when their checkout is not at the pin.
+  - Record the pins in the PR's Third-party dependencies section.
+- **Dawn headers (`wgpu` feature):** source builds with `wgpu` generate Skia's WebGPU
+  headers from the Dawn revision in `[package.metadata].dawn`
+  (`docs/adr/0003`). No file in the repository shows how they change, so every tag cut
+  diffs them.
+  - The fork's `DEPS` has no entries for Dawn and for Jinja2 and MarkupSafe, the Python
+    packages of Dawn's generator. Take their revisions from upstream, and copy them into
+    `[package.metadata].dawn`, `.jinja2`, and `.markupsafe`:
+
+    ```sh
+    git -C skia-bindings/skia show upstream/chrome/mNEW:DEPS | grep -E 'dawn.git@|/jinja2@|/markupsafe@'
+    ```
+
+  - Before bumping, build with the old revision and keep its output. The generated files
+    are in `out/dawn` of the `skia-bindings` build directory, next to `out/skia/bindings.rs`:
+
+    ```sh
+    cargo build -p skia-bindings --features wgpu
+    cp -R target/debug/build/skia-bindings-*/out/dawn "$TMPDIR/dawn-old"
+    ```
+
+    When several `skia-bindings-*` build directories exist, take the newest one, as for
+    `bindings.rs`.
+  - Bump `[package.metadata].dawn`, build again, and diff:
+
+    ```sh
+    cargo build -p skia-bindings --features wgpu
+    diff -ru "$TMPDIR/dawn-old" target/debug/build/skia-bindings-*/out/dawn
+    ```
+
+  - Read the whole diff of `include/dawn/webgpu.h`, and diff Skia's Dawn backend between
+    the tags for new WebGPU calls:
+
+    ```sh
+    git -C skia-bindings/skia diff refs/tags/OLD_TAG..refs/tags/NEW_TAG -- src/gpu/graphite/dawn include/gpu/graphite/dawn
+    ```
+
+  - The `wgpu*` functions that `libskia-bindings.a` leaves undefined are the ones the
+    `skia-wgpu` shim must export (`docs/adr/0004`). List them for the old and the new build,
+    from the newest `skia-bindings-*` build directory each time, and diff the lists. The
+    pattern skips the C++ namespace `wgpu` in mangled names:
+
+    ```sh
+    nm -u "$(ls -t target/debug/build/skia-bindings-*/out/skia/libskia-bindings.a | head -1)" | grep -oE 'wgpu[A-Z][A-Za-z]*' | sort -u
+    ```
+
+    Record the changes in the PR's Dawn headers section. Each changed function, struct,
+    enum value, and feature name that Skia's Dawn backend uses, and every undefined `wgpu*`
+    function that was added or removed, needs a matching change in the `skia-wgpu` shim. The
+    `nm` list is the authoritative check: a function the shim lacks fails the link of the `wgpu` tests
+    only if the tests keep the backend code that calls it. A changed signature fails the
+    shim's `WGPUProc*` check at compile time. A new
+    `wgpuDeviceHasFeature` check in Skia needs a decision whether the shim reports the
+    feature, recorded in `skia-wgpu/FEATURES.md`, whose stated milestone moves to the new one.
+    Surface these changes to the user, as for the build organization diff above.
+  - Re-check the release poll. Two kinds of Skia callbacks run while the shim's device and
+    Skia's shared context are being torn down: the poll at the release of the last device
+    handle fires the callbacks with `AllowSpontaneous`, and the release of the instance fires
+    every callback that has not fired yet with `CallbackCancelled`, whatever its mode. ADR 0003
+    argues that both are safe (the consequence on the release poll). List every callback that
+    Skia registers at the new tag. The pattern matches the C++ spelling `CallbackMode::` and the
+    C spelling `WGPUCallbackMode_`, anywhere in Skia's sources:
+
+    ```sh
+    git -C skia-bindings/skia grep -n 'CallbackMode' refs/tags/NEW_TAG -- src include
+    ```
+
+    The step is done when every listed callback is read and recorded in the PR's Release poll
+    section, and each one is confirmed safe in one of three ways: it uses only its own buffer or state
+    that outlives the device and the shared context, Skia waits for it before that state
+    goes away, or its body is empty. A new callback, or one that reaches the device or the
+    shared context, invalidates the ADR's argument: surface it to the user, because the
+    release poll needs a change before the update ships.
+  - `skia-bindings` compiles Skia's Dawn backend itself, from the `.cpp` files of
+    `skia_graphite_dawn_sources` in `gn/graphite.gni`, and leaves `skia_use_dawn` off. When the
+    build organization diff changes what `skia_use_dawn` adds in `BUILD.gn` (sources, defines,
+    include directories, dependencies), mirror the change in
+    `skia-bindings/build_support/dawn.rs`.
+- **`wgpu` versions:** `skia-wgpu` offers a feature `wgpu-NN` for each supported `wgpu` major
+  version, and `skia-safe`'s feature `wgpu` enables the one a release recommends
+  (`docs/adr/0003`). Removing a `wgpu-NN` feature or moving `skia-safe`'s `wgpu` to another one
+  breaks applications, so both only happen with a milestone version bump, and this update is the
+  place to propose them.
+  - Look up the newest `wgpu` version on crates.io, and compare its major version with the newest
+    `wgpu-NN` feature in `skia-wgpu/Cargo.toml`:
+
+    ```sh
+    cargo info wgpu
+    ```
+
+    A `wgpu` minor or patch release needs no change, because `wgpuNN = { package = "wgpu",
+    version = "NN" }` already accepts it. Record the outcome in the PR's `wgpu` versions section.
+  - When a newer major exists, propose the shim update to the user and implement it only after
+    their decision. The proposal names the new feature `wgpu-NN` with its optional dependency
+    `wgpuNN` and module `skia-wgpu/src/vNN.rs`, the `wgpu` API changes that the shim's source
+    meets (from the `wgpu` changelog, and from `cargo check -p skia-wgpu --features wgpu-NN`),
+    and which of them go into the per-version `compat` module. It checks each deviation in the
+    previous version's `skia-wgpu/src/vNN/README.md` against the new version, so the new
+    `compat` module and its own `README.md` keep only the workarounds the new version still
+    needs. It also asks whether `skia-safe`'s
+    feature `wgpu` moves to the new version, and whether an old `wgpu-NN` feature is removed.
+  - A new `wgpu-NN` feature also needs its forwarding feature in `skia-safe/Cargo.toml`,
+    `wgpu-NN = ["_wgpu", "skia-wgpu/wgpu-NN"]`. `skia-safe`'s `wgpu` code, its test
+    `skia-safe/tests/wgpu.rs`, and the example `wgpu-window` depend only on the hidden feature
+    `_wgpu`, so they change only where the new `wgpu` version changes an API that they use. Build
+    them with the new version to find these places:
+
+    ```sh
+    cargo clippy -p skia-safe --features wgpu-NN --tests --examples
+    ```
+
+    Prebuilt binaries need no change, because `skia-bindings`' feature `wgpu` does not depend on
+    the `wgpu` version.
+  - `skia-wgpu/Cargo.toml` names the `wgpu-NN` feature that docs.rs documents, in
+    `[package.metadata.docs.rs]`. Move it to the newest supported version.
 - **Toolchain requirements:** list the upstream commits that may raise a compiler,
   C++ library, or OS minimum, and read each commit message:
 
@@ -333,7 +477,28 @@ replays the old milestone's upstream-only commits as if they were fork patches.
   the libstdc++ in the CI image (see `AGENTS.md`). Surface each requirement to the user as
   a decision: raise the minimum, or carry a fork patch. When a minimum rises, also check
   whether a `rust-skia:` fork patch existed only to support the old one, such as an
-  `@available` workaround.
+  `@available` workaround. Record the outcome in the PR's Toolchain requirements section.
+  - Compare the Android NDK that Skia's CI pins with the NDK in the published Linux CI image,
+    which builds rust-skia's prebuilt Android binaries:
+
+    ```sh
+    git -C skia-bindings/skia grep -h 'NDK_VER =' refs/tags/NEW_TAG -- infra/bots/assets/android_ndk_linux/create.py
+    sha=$(gh run list -R pragmatrix/rust-skia-images --workflow publish-images.yml --status success -L 1 --json headSha --jq '.[0].headSha')
+    gh api "repos/pragmatrix/rust-skia-images/contents/linux/Dockerfile?ref=$sha" --jq .content | base64 -d | grep 'ANDROID_NDK_VERSION='
+    ```
+
+    The second command reads the Dockerfile at the commit of the last successful publish run,
+    not at `master`. Every publish run replaces the image, and a run can publish any branch, so
+    `master` can name an NDK that the image does not have yet. The image's NDK always follows
+    Skia's pin. Users need the NDK that built the prebuilt binaries, or a newer one, to link
+    them, because the binaries can reference libc++ symbols that older NDKs lack. A newer NDK in
+    the image forces every Android user to upgrade. An older one is a toolchain that Skia's CI
+    does not test. The `qa` workflow enforces the rule: its step `just check-android-ndk` fails
+    when the NDK of the image differs from Skia's pin. When the two versions differ, tell the
+    user, and move the image to Skia's pin. The move changes the Dockerfile in
+    `pragmatrix/rust-skia-images` and the NDK version in the Android section of `README.md`.
+    Publish the new image before CI builds the release binaries, and run the check again to
+    confirm it. Record both versions in the PR's Toolchain requirements section.
 - **Include diffs:** use direct `git -C skia-bindings/skia diff refs/tags/OLD_TAG..refs/tags/NEW_TAG -- ...`
   commands. `just diff-skia` only compares the fork patch stack against master (it is
   the "Do the fork patches ... match with `master`" checklist item).
@@ -371,11 +536,10 @@ replays the old milestone's upstream-only commits as if they were fork patches.
        is needed;
      - **new public header** — decide whether to add a binding + wrapper, and record
        the decision.
-  3. Keep a written accounting (in a scratch file like `/tmp/mXX_accounting.md`) of
-     every changed header and the decision made for it (`no change`, `updated binding`,
-     `updated wrapper`, `added new`, `skipped — internal only`, `skipped — no
-     binding/wrapper`). **Do not start editing wrappers until every header has an entry
-     in this accounting.**
+  3. Record every changed header in the header list, `$TMPDIR/NEW_TAG-headers.md`, with its
+     decision: `no change`, `updated binding`, `updated wrapper`, `added new`, `skipped —
+     internal only`, or `skipped — no binding/wrapper`. **Start editing wrappers only once
+     every header has an entry.**
   4. Batch the headers by classification and process each batch in one pass, editing the
      matching `*.cpp` and `skia-safe/src/...` files together. Re-run
      `cargo check -p skia-bindings` (touching `bindings.cpp` first to force bindgen
@@ -386,7 +550,7 @@ replays the old milestone's upstream-only commits as if they were fork patches.
   `graphite/`, `mtl/`, `vk/`), `pathops/`, `svg/`, `utils/`, and `modules/` (with
   `paragraph/`, `shaper/`, `skottie/`, `skresources/`, `svg/`). For each area,
   cross-reference the changed headers against the corresponding `skia-bindings/src/*.cpp`
-  and `skia-safe/src/...` wrapper module, and record the outcome in the accounting.
+  and `skia-safe/src/...` wrapper module, and record the outcome in the header list.
 - **Wrapper updates:** follow the `rust-skia-bindings` skill for how to add or change
   a C shim and its Rust wrapper. In short: preserve method/debug-field ordering aligned
   with the upstream C++ header, prefer direct field access over getter/setter shims for
@@ -397,8 +561,7 @@ replays the old milestone's upstream-only commits as if they were fork patches.
   implementations for new wrappers.
 - **Ported docs:** record every doc ported or changed for the milestone in a
   `# mXX update` section of `skia-safe/docs-porting-tracker.md`, with the header each
-  doc comes from and any C++ sentence left out on purpose. The milestone line at the top
-  of the tracker points to that section.
+  doc comes from and any C++ sentence left out on purpose.
 
 ## Release notes
 

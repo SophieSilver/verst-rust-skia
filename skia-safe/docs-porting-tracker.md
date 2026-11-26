@@ -2,7 +2,7 @@
 
 Persistent tracker of documentation ported from Skia C++ headers into `skia-safe` Rust rustdoc and **verified for completeness** against the C++ header (rule: C++ doc ported COMPLETELY, no shortening; only allowed drops = fiddle example links, out-param/nullptr→Option, ownership sentences, name translation + intra-doc links).
 
-**Milestone:** m157 (skia-bindings `skia = "m157.2"`; Skia submodule tag `m157.2`; crates `0.157.0`). The current state is described in the `# m154 update (2026-09-20)` and `# m157 update (2026-11-03)` sections below; everything above it is the m153 doc corpus (verified against the m153 headers on 2026-09-08) and still applies to every header that did not change in m154.
+**Current state:** each `# mXX update` section below records the docs ported for one milestone update, the newest last. Everything above the first of these sections is the m153 doc corpus (verified against the m153 headers on 2026-09-08). It still applies to every header that no later update changed.
 
 ## Verification method
 - Independent subagent audit comparing EVERY public item doc in each Rust file vs its C++ header.
@@ -32,7 +32,7 @@ Committed on branch `docs` (in order):
 - **drawable.rs** (SkDrawable.h): all methods + GpuDrawHandler class doc.
 - **vertices.rs** (SkVertices.h): all (new_copy omits "texs/colors may be nullptr" — Rust API can't pass None, adaptation).
 - **image_info.rs** (SkImageInfo.h): ColorInfo + ImageInfo type overviews, all factories/accessors, reset, is_opaque, is_gamma_close_to_srgb.
-- **color_space.rs** (SkColorSpace.h): new_srgb/linear/new_icc/new_cicp/to_xyzd50_hash/with_*_gamma/with_color_spin/is_srgb/serialize (deserialize/transfer_fn/etc. have no C++ doc → OK).
+- **color_space.rs** (SkColorSpace.h): new_srgb/linear/new_icc/new_cicp/new_rgb/to_xyzd50_hash/with_*_gamma/with_color_spin/is_srgb/serialize (deserialize/transfer_fn/etc. have no C++ doc → OK) named_gamut: only plain `//` comments in C++ (kSRGB, kAdobeRGB) → kept as `//` comments, DISPLAY_P3/REC2020/XYZ undocumented.
 - **graphics.rs** (SkGraphics.h): all functions.
 - **m44.rs** (SkM44.h): new, rect_to_rect, to_m33 (asM33 diagram) + previously ported methods.
 - **matrix.rs** (SkMatrix.h): ~60 methods — factories (scale/translate/rotate_deg/skew/new_all), getters/setters (rc/scale_x/y/skew_x/y/translate_x/y/persp_x/y + set_*), set_all/get_9/set_9/reset/set_identity/set_translate/set_scale/set_rotate/set_sin_cos/set_rsxform/set_skew/set_concat, all pre_*/post_* matrix-multiply diagrams, rect_2_rect/rect_to_rect_or_identity/poly_to_poly/invert/affine family/normalize_perspective, all map_* methods, min_scale/max_scale/min_max_scales/decompose_scale/i/invalid_matrix/concat/dirty_matrix_type_cache/set_scale_translate/is_finite/dump.
@@ -212,6 +212,17 @@ Milestone m157: crates `0.157.0`, Skia submodule tag `m157.2`. The PR is rust-sk
 - `graphite::Context::set_mutable_state()`, from `setMutableState()` in `include/gpu/graphite/Context.h`.
 - `Subsampling`, whose doc gained the `PlaneConfig::YUYV` exception in `include/core/SkYUVAInfo.h`.
 - `Paragraph::get_rects_for_placeholders()`, from `getRectsForPlaceholders()` in `modules/skparagraph/include/Paragraph.h`.
+
+---
+
+# m158 update (2026-11-13)
+
+Milestone m158: crates `0.158.0`, Skia submodule tag `m158.2`. The PR is rust-skia/rust-skia#1357. The docs of the new and changed m158 items are ported completely from the m158 headers:
+
+- `ParagraphStyle::soft_hyphen_string()` and `set_soft_hyphen_string()`, from the comment on `getSoftHyphenString()` in `modules/skparagraph/include/ParagraphStyle.h`. The getter carries the first two sentences of that comment. The setter carries its last sentence, that the string has no effect when soft hyphen rendering is disabled.
+- `ParagraphStyle::height()` and `set_height()`, whose `#[deprecated]` note comes from the `DEPRECATED` comment in `modules/skparagraph/include/ParagraphStyle.h`. The C++ sentence "Kept until clients stop calling it" is left out, because the attribute itself says that.
+- `webp_encoder::Options::method`, from `fMethod` in `include/encode/SkWebpEncoder.h`. The sentence that a value above 6 makes encoding fail is rust-skia's own.
+- `make_ganesh()` of the `d3d`, `gl`, `mtl`, and `vk` Ganesh modules and `make_graphite()` of the `mtl` and `vk` Graphite modules, from `SkContexts::MakeGanesh()` and `SkContexts::MakeGraphite()` in the backend headers under `include/gpu/ganesh/` and `include/gpu/graphite/`. The sentence that `None` selects Skia's default options is rust-skia's own.
 
 ---
 

@@ -18,21 +18,20 @@ result is missing, stale, or mismatched, stop and invoke the
 
 ## Failure prevention
 
-Before requesting approval for crate publication:
+For crate publication:
 
 - Query publication state with
    `cargo info --registry crates-io <crate>@<version>`. An unqualified lookup
    can resolve the local workspace package and falsely report it as published.
-- With no source-build or package check running, generate documentation
-   bindings using `env -u FORCE_SKIA_BUILD -u FORCE_SKIA_BINARIES_DOWNLOAD just
-   bindings-docs`. Require a successful exit and a non-empty
-   `/tmp/bindings.rs` before publishing any crate, including
-   `skia-svg-macros`. This catches a damaged nested dependency checkout before
-   publication becomes partial.
-- If documentation generation reports missing or incompatible files under a
-   nested Skia dependency, stop. Repair or resynchronize that checkout, then
-   rerun the documentation-binding preflight; never overlap it with another
-   Skia source build.
+- Start `just release-publish-crates` only while no other Skia source build or
+   package check is running. Before it publishes any crate, it builds Skia from
+   source to generate the documentation bindings, and concurrent builds damage
+   the nested dependency checkouts they share.
+- If the recipe stops because documentation generation reports missing or
+   incompatible files under a nested Skia dependency, nothing has been
+   published. Repair or resynchronize that checkout, then rerun the recipe.
+- The documentation build runs `cargo build -vv`, which also prints the
+   warnings of third-party dependencies. Only an error stops publication.
 - Post-publication smoke tests must install the exact release with
    `skia-safe@=<version>`, including the Emscripten build. An unpinned install
    can select an older release and produce an irrelevant failure.
@@ -44,16 +43,19 @@ approval immediately before each command.
 Publish in this order:
 
 1. `just release-publish-crates <version> <previous-version>` publishes the
-   required crates in dependency order, verifies registry availability, and
-   runs smoke tests. It automatically includes `skia-svg-macros` first when the
-   crate changed.
+   required crates in dependency order (`skia-bindings`, `skia-wgpu`,
+   `skia-safe`), verifies registry availability, and runs smoke tests. It
+   automatically includes `skia-svg-macros` first when the crate changed.
+   `skia-safe` depends on `skia-wgpu` through its `wgpu` features, so crates.io
+   rejects `skia-safe` until `skia-wgpu` of the same version is published.
 2. `just release-publish-github <version> <commit> <notes> true` creates or
    resumes the GitHub release as a prerelease and verifies the final tag.
    rust-skia GitHub releases are always prereleases; never omit `true`.
 
 Do not replace a published crate version. If only `skia-svg-macros` has been
 published, confirm that state against crates.io, reuse it, and resume at
-`skia-bindings`; never attempt to republish it. If the release commit must
-change after `skia-bindings` or `skia-safe` was published, use a new patch
-version. Any source fix invalidates verification; return to release
+`skia-bindings`; never attempt to republish it. The recipe skips every crate
+that is already published, so a rerun resumes at the first missing one. If the
+release commit must change after `skia-bindings`, `skia-wgpu`, or `skia-safe`
+was published, use a new patch version. Any source fix invalidates verification; return to release
 preparation and rerun the `rust-skia-release-verification` skill.

@@ -18,25 +18,30 @@ release.
    a clean working tree with the Skia submodule at its recorded tag, and `emcc`
    for the post-release smoke test. It verifies the branches and binary
    workflows/assets, verifies binary-download and source-build packaging, and
-   dry-runs `skia-svg-macros` packaging when that crate changed. Its output ends
+   dry-runs `skia-svg-macros` packaging when that crate changed. `skia-wgpu`
+   and `skia-safe` cannot be dry-run before `skia-bindings` is published,
+   because both require its exact version from crates.io. Its output ends
    with a `Summary:` block that lists every check that passed.
 2. Run `just release-verify-images <previous-version> <commit>` and inspect every
    reported difference. This compares the CPU-rendered PNGs across every
    platform that produces QA artifacts (linux, macos, windows, windows-arm).
    The candidate comes from the `master` QA run at the exact release commit,
    because pushing `release` triggers binary workflows but not QA workflows.
-   Read `/tmp/rust-skia-release-images/comparison/summary.tsv` and inspect its
-   `review` directory. Exit status 0 is an exact match, 1 means differences
-   require review, and 2 means the check could not run. Added, removed, resized,
-   blank, corrupt, clipped, missing-text, wrong-color, and unexplained pixel
-   changes block publication.
+   The script prints its report directory as `Report:` and its summary as
+   `Summary:`. Read that `summary.tsv` and inspect the `review` directory next
+   to it. Exit status 0 means every image is pixel-identical, 1 means
+   differences require review, and 2 means the check could not run. Added,
+   removed, resized, blank, corrupt, clipped, missing-text, wrong-color, and
+   unexplained pixel changes block publication.
+   In the summary, `identical` means byte-for-byte equal and `matched` means
+   pixel-identical with different bytes. Report the two counts separately and
+   name what the differing bytes contain, such as PDF `Producer` metadata.
 3. Run `just release-verify-vector <previous-version> <commit>` and inspect the
    reported SVG/PDF differences (advisory). This rasterizes the `svg/` and
    `pdf/` trees with third-party tools (`rsvg-convert`, Ghostscript) that are
    not Skia, so a difference only indicates the vector content changed as seen
-   through a foreign renderer. Read
-   `/tmp/rust-skia-release-vector/comparison/summary.tsv` and inspect its
-   `review` directory.
+   through a foreign renderer. Read the `summary.tsv` it prints and inspect the
+   `review` directory next to it.
 4. Write the release notes. The maintainer does not write them, so unless the
    user names an existing notes file, draft
    `$TMPDIR/rust-skia-<version>-notes.md` from the PRs merged since the

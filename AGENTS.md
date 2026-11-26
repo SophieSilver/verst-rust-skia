@@ -14,6 +14,12 @@
   - `src/modules/shaper/` -> `modules/skshaper/include/`
   - `src/modules/paragraph/` -> `modules/skparagraph/include/`
   - etc.
+- `skia-wgpu/` - Runs Graphite's Dawn backend on the `wgpu` crate: the WebGPU C functions that the
+  backend calls, implemented on `wgpu` (the shim), one module per supported `wgpu` major version
+  behind the feature `wgpu-NN` (see `docs/adr/0003-skia-runs-on-wgpu-through-a-webgpu-shim.md`).
+  `skia-safe` uses it behind the same features.
+- `skia-org/` - Ports of the fiddles on skia.org, rendered per driver. `skia-org/README.md` maps
+  each skia.org page to its module and records how to fetch and port a fiddle.
 - `mk-workflows/` - Generator for the platform CI workflows in `.github/workflows/`; edit it, then
   run `just workflows`. The macOS deployment target lives here.
 - CI Linux toolchain: `ghcr.io/pragmatrix/rust-skia-linux` is built from

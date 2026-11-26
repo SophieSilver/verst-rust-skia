@@ -4,9 +4,6 @@ qa_platforms := "linux-qa.yaml:skia-org-images-x86_64-unknown-linux-gnu macos-qa
 # Features of the documentation built on macOS.
 doc_features_mac := "gl,vulkan,metal,textlayout,svg,skottie,ureq,webp"
 
-# Features that docs.rs builds with. The published documentation bindings use them.
-doc_features_docs_rs := "ganesh,gl,textlayout,svg,skottie,ureq,webp,vulkan"
-
 # Features of the local build test.
 local_build_features := "gl,vulkan,webp,textlayout"
 
@@ -48,6 +45,30 @@ check-skia-submodule-tag:
 
     echo "OK: skia submodule tag matches metadata tag ($expected_tag)"
 
+# Fail when the Android NDK of the Linux CI image differs from the NDK that Skia's CI pins. The
+# image builds the prebuilt Android binaries, and users need its NDK or a newer one to link them.
+# The image sets `ANDROID_NDK_VERSION`, so the check runs inside it, as a step of the `qa` workflow.
+check-android-ndk:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    pin_file=skia-bindings/skia/infra/bots/assets/android_ndk_linux/create.py
+    skia_ndk="$(sed -nE 's/^NDK_VER = "android-ndk-([^"]+)"/\1/p' "$pin_file")"
+    if [[ -z "$skia_ndk" ]]; then
+        echo "Could not find NDK_VER in $pin_file" >&2
+        exit 1
+    fi
+    if [[ -z "${ANDROID_NDK_VERSION:-}" ]]; then
+        echo "ANDROID_NDK_VERSION is not set. Run this check in the Linux CI image." >&2
+        exit 1
+    fi
+    if [[ "$ANDROID_NDK_VERSION" != "$skia_ndk" ]]; then
+        echo "Mismatch: the Linux CI image has Android NDK $ANDROID_NDK_VERSION, but Skia's CI pins $skia_ndk in $pin_file" >&2
+        exit 1
+    fi
+
+    echo "OK: the Linux CI image has Android NDK $ANDROID_NDK_VERSION, the version Skia's CI pins"
+
 # Check the third-party commits pinned in Skia's DEPS file against OSV.dev for known vulnerabilities.
 audit-skia-deps:
     python3 .github/scripts/audit-skia-deps.py
@@ -65,13 +86,15 @@ release-verify version previous commit remote="upstream":
     bash .github/scripts/release.sh verify "{{ version }}" "{{ previous }}" "{{ commit }}" "{{ remote }}"
 
 # Download matching QA artifacts and compare all generated images across every
-# platform that produces QA artifacts.
-release-verify-images previous commit report="/tmp/rust-skia-release-images" platforms="" runs="":
+# platform that produces QA artifacts. Without `report`, the script writes to a new
+# directory under $TMPDIR and prints its path.
+release-verify-images previous commit report="" platforms="" runs="":
     bash .github/skills/rust-skia-release-verification/scripts/compare-images.sh "{{ previous }}" "{{ commit }}" "{{ report }}" "{{ if platforms == "" { qa_platforms } else { platforms } }}" "{{ runs }}"
 
 # Advisory comparison of the SVG and PDF outputs between two commits, across
-# every platform that produces QA artifacts.
-release-verify-vector previous commit formats="svg pdf" report="/tmp/rust-skia-release-vector" platforms="" runs="":
+# every platform that produces QA artifacts. Without `report`, the script writes to
+# a new directory under $TMPDIR and prints its path.
+release-verify-vector previous commit formats="svg pdf" report="" platforms="" runs="":
     bash .github/skills/rust-skia-release-verification/scripts/compare-vector.sh "{{ previous }}" "{{ commit }}" "{{ formats }}" "{{ report }}" "{{ if platforms == "" { qa_platforms } else { platforms } }}" "{{ runs }}"
 
 # Publish required crates in dependency order, verify them, and run smoke tests.
@@ -136,13 +159,21 @@ publish-bindings-docs: bindings-docs
 publish-svg-macros:
     cd skia-svg-macros && cargo publish -vv
 
+# Publish skia-wgpu. Like skia-safe, it skips verification, which would build skia-bindings.
+publish-wgpu:
+    cd skia-wgpu && cargo publish -vv --no-verify
+
 # Publish skia-safe.
 publish-safe:
     cd skia-safe && cargo publish -vv --no-verify --allow-dirty
 
-# Generate the bindings with the docs.rs features and copy them to `/tmp/bindings.rs`.
+# Generate the bindings with the features that docs.rs builds skia-safe with, read from its
+# `[package.metadata.docs.rs]`, and copy them to `/tmp/bindings.rs`.
 bindings-docs:
-    cargo build -vv --features {{ doc_features_docs_rs }}
+    #!/usr/bin/env bash
+    set -euo pipefail
+    features="$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "skia-safe") | .metadata.docs.rs.features | join(",")')"
+    cargo build -vv --features "$features"
     cp "$({{ bindings_latest }})" /tmp/bindings.rs
 
 # Build the skia-safe documentation and push it to rust-skia.github.io.
@@ -240,3 +271,13 @@ locate-bindings:
 # Open the most recently generated `bindings.rs` in VS Code.
 open-bindings:
     code "$({{ bindings_latest }})"
+
+# Print the skia.org pages with fiddles that `skia-org/README.md` lists neither as ported nor as
+# skipped, and fail when there are any.
+org-unlisted-pages:
+    bash .github/scripts/org-unlisted-pages.sh
+
+# Render the skia-org examples with two raster drivers and list the images that differ, see
+# `.github/scripts/compare-org.sh`.
+compare-org a="cpu" b="wgpu" features="wgpu" fuzz="2%":
+    bash .github/scripts/compare-org.sh "{{ a }}" "{{ b }}" "{{ features }}" "{{ fuzz }}"

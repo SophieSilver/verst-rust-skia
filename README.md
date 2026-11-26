@@ -2,14 +2,48 @@
 
 [![crates.io](https://img.shields.io/crates/v/skia-safe)](https://crates.io/crates/skia-safe) [![license](https://img.shields.io/crates/l/skia-safe)](LICENSE) [![docs.rs](https://docs.rs/skia-safe/badge.svg)](https://docs.rs/skia-safe) [![Windows QA](https://github.com/rust-skia/rust-skia/actions/workflows/windows-qa.yaml/badge.svg?branch=master)](https://github.com/rust-skia/rust-skia/actions/workflows/windows-qa.yaml) [![Linux QA](https://github.com/rust-skia/rust-skia/actions/workflows/linux-qa.yaml/badge.svg?branch=master)](https://github.com/rust-skia/rust-skia/actions/workflows/linux-qa.yaml) [![macOS QA](https://github.com/rust-skia/rust-skia/actions/workflows/macos-qa.yaml/badge.svg?branch=master)](https://github.com/rust-skia/rust-skia/actions/workflows/macos-qa.yaml)
 
-Skia Submodule Status: chrome/m157 ([upstream changes][skia-upstream], [our changes][skia-ours]).
+Skia Submodule Status: chrome/m158 ([upstream changes][skia-upstream], [our changes][skia-ours]).
 
-[skia-upstream]: https://github.com/rust-skia/skia/compare/m157.2...google:chrome/m157
-[skia-ours]: https://github.com/google/skia/compare/chrome/m157...rust-skia:m157.2
+[skia-upstream]: https://github.com/rust-skia/skia/compare/m158.4...google:chrome/m158
+[skia-ours]: https://github.com/google/skia/compare/chrome/m158...rust-skia:m158.4
 
 ## About
 
-This project provides _up to date_ safe bindings that bridge idiomatic Rust with Skia's C++ API on desktop and mobile platforms, including GPU rendering backends for [Vulkan](<https://en.wikipedia.org/wiki/Vulkan_(API)>), [Metal](<https://en.wikipedia.org/wiki/Metal_(API)>), [OpenGL](https://en.wikipedia.org/wiki/OpenGL), and [Direct3D](https://en.wikipedia.org/wiki/Direct3D).
+This project provides _up to date_ safe bindings that bridge idiomatic Rust with Skia's C++ API on desktop and mobile platforms, including GPU rendering backends for [Vulkan](<https://en.wikipedia.org/wiki/Vulkan_(API)>), [Metal](<https://en.wikipedia.org/wiki/Metal_(API)>), [OpenGL](https://en.wikipedia.org/wiki/OpenGL), and [Direct3D](https://en.wikipedia.org/wiki/Direct3D). Skia can also render on the device of a [`wgpu`](https://wgpu.rs) application (experimental).
+
+## Contents
+
+- [ Safe Rust bindings for the Skia Graphics Library.](#-safe-rust-bindings-for-the-skia-graphics-library)
+  - [About](#about)
+  - [Contents](#contents)
+  - [Status](#status)
+    - [Documentation](#documentation)
+    - [Crate](#crate)
+    - [Wrappers \& Codecs \& Supported Features](#wrappers--codecs--supported-features)
+  - [Building](#building)
+    - [On macOS](#on-macos)
+    - [On Windows](#on-windows)
+    - [On Linux](#on-linux)
+      - [Ubuntu 20+](#ubuntu-20)
+    - [For Android](#for-android)
+    - [For iOS](#for-ios)
+    - [For visionOS](#for-visionos)
+    - [For WebAssembly](#for-webassembly)
+    - [Skia](#skia)
+  - [Example Applications](#example-applications)
+    - [wgpu-window](#wgpu-window)
+    - [gl-window](#gl-window)
+    - [vulkan-window](#vulkan-window)
+    - [metal-window](#metal-window)
+    - [metal-window-graphite](#metal-window-graphite)
+    - [d3d-window](#d3d-window)
+    - [icon](#icon)
+    - [skia-org](#skia-org)
+  - [Example Images](#example-images)
+  - [Contributing](#contributing)
+  - [Notable Contributions](#notable-contributions)
+  - [Maintainers](#maintainers)
+  - [License](#license)
 
 ## Status
 
@@ -69,7 +103,8 @@ The build system for Skia. `ninja` is available as a binary package on all major
 
 - [Install Visual Studio 2022 Build Tools](https://visualstudio.microsoft.com/downloads/) or one of the other IDE editions. If you installed the IDE, make sure that the [Desktop Development with C++ workload](https://docs.microsoft.com/en-us/cpp/build/vscpp-step-0-installation?view=msvc-170) is installed.
 
-- Install the [latest LLVM](http://releases.llvm.org/download.html) distribution.
+- Install the [latest LLVM](http://releases.llvm.org/download.html) distribution. Visual Studio 2026
+  needs LLVM 22 or newer, because its C++ standard library rejects older Clang versions.
 
   If the environment variable `LLVM_HOME` is not defined, the build script will look for LLVM installations located at `C:\Program Files\LLVM\`, `C:\LLVM\`, and `%USERPROFILE%\scoop\apps\llvm\current\`.
 
@@ -107,13 +142,13 @@ For example, to compile for `aarch64`:
    ```bash
    rustup target install aarch64-linux-android
    ```
-2. Download the [r26d NDK](https://developer.android.com/ndk/downloads) (or newer) for your host architecture and unzip it.
+2. Download the [r27d NDK](https://developer.android.com/ndk/downloads) (or newer) for your host architecture and unzip it.
 3. Compile your project for the `aarch64-linux-android` target:
 
 On **macOS**:
 
 ```bash
-export ANDROID_NDK=:path-to-android-ndk-r26d
+export ANDROID_NDK=:path-to-android-ndk-r27d
 export PATH=$PATH:$ANDROID_NDK/toolchains/llvm/prebuilt/darwin-x86_64/bin
 export CC_aarch64_linux_android=aarch64-linux-android26-clang
 export CXX_aarch64_linux_android=aarch64-linux-android26-clang++
@@ -128,7 +163,7 @@ We don't support Apple's Clang to build for Android on macOS, so you need to ins
 On **Linux**:
 
 ```bash
-export ANDROID_NDK=:path-to-android-ndk-r26d
+export ANDROID_NDK=:path-to-android-ndk-r27d
 export PATH=$PATH:$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64/bin
 export CC_aarch64_linux_android=aarch64-linux-android26-clang
 export CXX_aarch64_linux_android=aarch64-linux-android26-clang++
@@ -141,7 +176,7 @@ cargo build -vv --target aarch64-linux-android
 On **Windows** the Android NDK Clang executable must be invoked through `.cmd` scripts:
 
 ```bash
-export ANDROID_NDK=:path-to-android-ndk-r26d
+export ANDROID_NDK=:path-to-android-ndk-r27d
 export PATH=$PATH:$ANDROID_NDK/toolchains/llvm/prebuilt/windows-x86_64/bin
 export CC_aarch64_linux_android=aarch64-linux-android26-clang.cmd
 export CXX_aarch64_linux_android=aarch64-linux-android26-clang++.cmd
@@ -232,6 +267,16 @@ cargo build --target wasm32-unknown-emscripten
 Please share your build experience so that we can try to automate the build further.
 
 ## Example Applications
+
+### wgpu-window
+
+[![wgpu-window](artwork/wgpu-window.png)](skia-safe/examples/wgpu-window)
+
+A `wgpu` application that renders a rotating cube. Skia draws the animated rust-skia icon into the cube's texture every frame, on the application's own `wgpu` device and queue.
+
+```bash
+cargo run --example wgpu-window --features wgpu
+```
 
 ### gl-window
 
@@ -340,7 +385,7 @@ Dash Path Effect:
 
 For more, you may take a look at the [rust-skia.github.io](https://github.com/rust-skia/rust-skia.github.io/tree/master/skia-org/cpu) repository.
 
-## This project needs contributions!
+## Contributing
 
 If you'd like to help with the bindings, take a look at the [Wiki](https://github.com/rust-skia/rust-skia/wiki) to get started and create an issue to prevent duplicate work. For smaller tasks, grep for "TODO"s in the source code. And for heroic work, check out the label [help wanted](https://github.com/rust-skia/rust-skia/labels/help%20wanted). And if you'd like to help make the Rust API nicer to use, look out for open issues with the label [api ergonomics](https://github.com/rust-skia/rust-skia/issues?q=is%3Aissue+is%3Aopen+label%3A%22api+ergonomics%22).
 
