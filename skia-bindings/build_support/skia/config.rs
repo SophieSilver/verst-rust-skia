@@ -68,7 +68,6 @@ impl BuildConfiguration {
         }
 
         // TODO: Verst: provide override via env
-
         let opt_level = if cfg!(feature = "use-common-compile-directory") {
             Some("3".into())
         } else {

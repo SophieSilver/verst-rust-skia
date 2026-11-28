@@ -35,6 +35,7 @@ textlayout = ["skia-safe/textlayout"]
 webp = ["skia-safe/webp"]
 svg = ["skia-safe/svg"]
 use-system-libraries = ["skia-safe/use-system-libraries"]
+use-common-compile-directory = ["skia-safe/use-common-compile-directory"]
 wgpu = ["skia-safe/wgpu"]
 
 [dependencies]
